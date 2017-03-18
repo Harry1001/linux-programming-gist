@@ -18,23 +18,25 @@ int main(int argc, char * argv[]) {
     l_cnt=w_cnt=c_cnt=0;
     int was_blank=1;
     while (!feof(fp)) {
-        fgets(buff, MAX_LINE, fp);
-        char *p = buff;
-        while (*p) {
-            c_cnt++;
-            if (is_blank(*p)) {
-                was_blank=1;
-                if (*p=='\n'){
-                    l_cnt++;
+        if(fgets(buff, MAX_LINE, fp)){
+            char *p = buff;
+            while (*p) {
+                c_cnt++;
+                if (is_blank(*p)) {
+                    was_blank=1;
+                    if (*p=='\n'){
+                        l_cnt++;
+                    }
+                } else {
+                    if (was_blank){
+                        w_cnt++;
+                        was_blank=0;
+                    }
                 }
-            } else {
-                if (was_blank){
-                    w_cnt++;
-                    was_blank=0;
-                }
+                p++;
             }
-            p++;
         }
+        
     }
     fclose(fp);
     printf(" %d %d %d %s\n", l_cnt, w_cnt, c_cnt, argv[1]);
