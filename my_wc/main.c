@@ -36,6 +36,7 @@ int main(int argc, char * argv[]) {
             p++;
         }
     }
+    fclose(fp);
     printf(" %d %d %d %s\n", l_cnt, w_cnt, c_cnt, argv[1]);
     return 0;
 }
