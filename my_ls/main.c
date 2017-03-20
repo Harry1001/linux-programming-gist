@@ -5,20 +5,60 @@
 #include <sys/stat.h>
 #include <pwd.h>
 #include <grp.h>
+#include <stdlib.h>
+#include <string.h>
+
+
+
+
+
+
+
+
+//TODO 没办法，必须要调用chdir改变当前工作目录，不然太复杂！！！！！！！！！！！
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #define MAX_LENGTH 1024
+
+//缓存目录的链表节点
+typedef struct dir_node{
+    char *dir_name;
+    struct dir_node *next;
+} Node;
 
 int strequ(const char s1[], const char s2[]);
 int has_opt(const char opt[]);
 void handle_d(char *d_name);
 void handle_a(char *d_name);
 void handle_il(char *f_name);
-void handle_R(char *f_name);
+void cache_dir(char *full_name);
+void handle_R(char *prefix);
 
 int g_argc;
 char **g_argv;
+Node *head;
+Node *rear;
 
 int main(int argc, char *argv[]) {
+    head=rear=NULL;
     g_argc=argc;
     g_argv=argv;
     char dir_buff[MAX_LENGTH];
@@ -49,28 +89,62 @@ void handle_d(char *d_name){
 void handle_a(char *d_name){
     DIR *dp;
     struct dirent *entry;
+
+    if (has_opt("-R")){
+        printf("%s:\n", d_name);
+    }
     if ((dp=opendir(d_name))!=NULL){
+        if (has_opt("-a")){
+            handle_il(".");
+            handle_il("..");
+        }
         while((entry=readdir(dp)) != NULL){
             if (!strequ(entry->d_name, ".") && (!strequ(entry->d_name, ".."))){
+                //将文件夹存起来用于最后一起传给-R处理
+
+                struct stat stat_buff;
+                if (lstat(entry->d_name, &stat_buff)==0){   //get stat success
+                    if (S_ISDIR(stat_buff.st_mode)){    //is directory
+                        cache_dir(entry->d_name);
+                    } else{ //not directory
+                        //do nothing
+                    }
+                }
+
                 if (has_opt("-a")){
-                    handle_R(entry->d_name);
+                    handle_il(entry->d_name);
                 } else{
                     char *p = entry->d_name;
                     if (*p!='.'){
-                        handle_R(p);
+                        handle_il(entry->d_name);
                     }
                 }
             }
         }
+        handle_R(d_name);
         closedir(dp);
     }
 }
 
-void handle_R(char *f_name){
-    handle_il(f_name);
+//缓存文件夹等待输出
+void cache_dir(char *full_name){
+    if (head==NULL){
+        head=rear=(Node *)malloc(sizeof(Node));
+        rear->dir_name=full_name;
+        rear->next=NULL;
+    } else{
+        rear->next=(Node *)malloc(sizeof(Node));
+        rear=rear->next;
+        rear->dir_name=full_name;
+        rear->next=NULL;
+    }
+}
+
+void handle_R(char *prefix){
     if (has_opt("-R")){
         //if directory, open it
         struct stat stat_buff;
+        //注意递归需要路径前缀！！！！
         if (lstat(f_name, &stat_buff)==0){   //get stat success
             if (S_ISDIR(stat_buff.st_mode)){    //is directory
                 handle_a(f_name);
@@ -87,14 +161,14 @@ void handle_il(char *f_name){
     if (has_opt("-i")){
         struct stat stat_buff;
         if (lstat(f_name, &stat_buff)==0){
-            printf("%lu", stat_buff.st_ino);
+            printf("%lu ", stat_buff.st_ino);
         }
     }
     if (has_opt("-l")){
         char per_buff[11];
         char *p=per_buff;
         per_buff[0]='\0';
-        per_buff[11]='\0';
+        per_buff[10]='\0';
         struct stat stat_buff;
         if (lstat(f_name, &stat_buff)==0){
             if (S_ISDIR(stat_buff.st_mode)){
@@ -172,30 +246,27 @@ void handle_il(char *f_name){
                 }
             }
             //output permission
-            printf(" %s", per_buff);
+            printf("%s ", per_buff);
 
-            printf(" %lu", stat_buff.st_nlink);
+            printf("%lu ", stat_buff.st_nlink);
             struct passwd *pw = getpwuid(stat_buff.st_uid);
             struct group *gr = getgrgid(stat_buff.st_gid);
             if (pw != NULL){
-                printf(" %s", pw->pw_name);
+                printf("%s ", pw->pw_name);
             } else{
-                printf(" %u", stat_buff.st_uid);
+                printf("%u ", stat_buff.st_uid);
             }
             if (gr !=NULL){
-                printf(" %s", gr->gr_name);
+                printf("%s ", gr->gr_name);
             } else{
-                printf(" %u", stat_buff.st_gid);
+                printf("%u ", stat_buff.st_gid);
             }
-            printf(" %ld", stat_buff.st_size);
-
-
-
-            //todo
-            printf("\n");
+            printf("%ld ", stat_buff.st_size);
+            printf("%d ", stat_buff.st_mtim);//todo error
+            printf("%s\n", f_name);
         }
     } else{
-        printf("%s\t", f_name);
+        printf("%s  ", f_name);
     }
 }
 
