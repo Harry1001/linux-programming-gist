@@ -8,108 +8,50 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-
-
-
-
-
-
-//TODO 没办法，必须要调用chdir改变当前工作目录，不然太复杂！！！！！！！！！！！
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #define MAX_LENGTH 1024
-
-//缓存目录的链表节点
-typedef struct dir_node{
-    char *dir_name;
-    struct dir_node *next;
-} Node;
 
 int strequ(const char s1[], const char s2[]);
 int has_opt(const char opt[]);
-void handle_d(char *d_name);
-void handle_a(char *d_name);
+void handle_d();
+void handle_a();
 void handle_il(char *f_name);
-void cache_dir(char *full_name);
-void handle_R(char *prefix);
+void handle_R(char *d_name);
 
 int g_argc;
-char **g_argv;
-Node *head;
-Node *rear;
+char **g_argv;;
+char cwd[MAX_LENGTH];
 
 int main(int argc, char *argv[]) {
-    head=rear=NULL;
     g_argc=argc;
     g_argv=argv;
-    char dir_buff[MAX_LENGTH];
-    if (getcwd(dir_buff, sizeof(dir_buff))) {
-        handle_d(dir_buff);
-//        puts(dir_buff);
-//        DIR *dp;
-//        if ((dp = opendir(dir_buff)) != NULL) {
-//            struct dirent *entry;
-//            while ((entry=readdir(dp)) != NULL) {
-//                puts(entry->d_name);
-//            }
-//            puts("=================");
-//            closedir(dp);
-//        }
-    }
+    cwd[0]='.';
+    cwd[1]='\0';
+    handle_d();
     return 0;
 }
 
-void handle_d(char *d_name){
+void handle_d(){
     if (has_opt("-d")){
-        handle_il(d_name);
+        handle_il(cwd);
     } else{
-        handle_a(d_name);
+        handle_a();
     }
 }
 
-void handle_a(char *d_name){
+void handle_a(){
     DIR *dp;
     struct dirent *entry;
 
     if (has_opt("-R")){
-        printf("%s:\n", d_name);
+        printf("%s:\n", cwd);
     }
-    if ((dp=opendir(d_name))!=NULL){
+    if ((dp=opendir(cwd))!=NULL){
         if (has_opt("-a")){
             handle_il(".");
             handle_il("..");
         }
         while((entry=readdir(dp)) != NULL){
             if (!strequ(entry->d_name, ".") && (!strequ(entry->d_name, ".."))){
-                //将文件夹存起来用于最后一起传给-R处理
-
-                struct stat stat_buff;
-                if (lstat(entry->d_name, &stat_buff)==0){   //get stat success
-                    if (S_ISDIR(stat_buff.st_mode)){    //is directory
-                        cache_dir(entry->d_name);
-                    } else{ //not directory
-                        //do nothing
-                    }
-                }
 
                 if (has_opt("-a")){
                     handle_il(entry->d_name);
@@ -121,37 +63,49 @@ void handle_a(char *d_name){
                 }
             }
         }
-        handle_R(d_name);
+        puts("\n");
         closedir(dp);
-    }
-}
 
-//缓存文件夹等待输出
-void cache_dir(char *full_name){
-    if (head==NULL){
-        head=rear=(Node *)malloc(sizeof(Node));
-        rear->dir_name=full_name;
-        rear->next=NULL;
-    } else{
-        rear->next=(Node *)malloc(sizeof(Node));
-        rear=rear->next;
-        rear->dir_name=full_name;
-        rear->next=NULL;
-    }
-}
-
-void handle_R(char *prefix){
-    if (has_opt("-R")){
-        //if directory, open it
-        struct stat stat_buff;
-        //注意递归需要路径前缀！！！！
-        if (lstat(f_name, &stat_buff)==0){   //get stat success
-            if (S_ISDIR(stat_buff.st_mode)){    //is directory
-                handle_a(f_name);
-            } else{ //not directory
-                //do nothing
+        if((dp=opendir(cwd))!=NULL){
+            while((entry=readdir(dp)) != NULL){
+                if (!strequ(entry->d_name, ".") && (!strequ(entry->d_name, ".."))){
+                    size_t len = strlen(entry->d_name);
+                    strcat(cwd,"/");
+                    strcat(cwd, entry->d_name);
+                    struct stat stat_buff;
+                    if (lstat(cwd, &stat_buff)==0){   //get stat success
+                        cwd[strlen(cwd)-len-1]='\0';
+                        if (S_ISDIR(stat_buff.st_mode)){    //is directory
+                            if (has_opt("-a")){
+                                handle_R(entry->d_name);
+                            } else{
+                                if (*(entry->d_name) != '.'){
+                                    handle_R(entry->d_name);
+                                }
+                            }
+                        } else{ //not directory
+                            //do nothing
+                        }
+                    } else{
+                        cwd[strlen(cwd)-len-1]='\0';
+                    }
+                }
             }
+
+            closedir(dp);
         }
+
+    }
+}
+
+void handle_R(char *d_name){
+    if (has_opt("-R")){
+        size_t len = strlen(d_name);
+        strcat(cwd, "/");
+        strcat(cwd, d_name);
+        handle_a();
+        size_t total_len = strlen(cwd);
+        cwd[total_len-len-1]='\0';
     } else{
         //do nothing
     }
@@ -173,8 +127,16 @@ void handle_il(char *f_name){
         if (lstat(f_name, &stat_buff)==0){
             if (S_ISDIR(stat_buff.st_mode)){
                 *p++ = 'd';
-            } else{
-                *p++ = '-';
+            } else if (S_ISCHR(stat_buff.st_mode)){
+                *p++ = 'c';
+            } else if (S_ISBLK(stat_buff.st_mode)){
+                *p++ = 'b';
+            } else if (S_ISFIFO(stat_buff.st_mode)){
+                *p++ = 'p';
+            } else if (S_ISLNK(stat_buff.st_mode)){
+                *p++ = 'l';
+            } else if (S_ISSOCK(stat_buff.st_mode)){
+                *p++ = 's';
             }
             if (stat_buff.st_mode & S_IRUSR){
                 *p++ = 'r';
