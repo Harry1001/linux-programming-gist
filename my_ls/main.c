@@ -7,6 +7,7 @@
 #include <grp.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define MAX_LENGTH 1024
 
@@ -33,6 +34,7 @@ int main(int argc, char *argv[]) {
 void handle_d(){
     if (has_opt("-d")){
         handle_il(cwd);
+        putchar('\n');
     } else{
         handle_a();
     }
@@ -124,7 +126,9 @@ void handle_il(char *f_name){
         per_buff[0]='\0';
         per_buff[10]='\0';
         struct stat stat_buff;
-        if (lstat(f_name, &stat_buff)==0){
+        strcat(cwd, "/");
+        strcat(cwd, f_name);
+        if (lstat(cwd, &stat_buff)==0){
             if (S_ISDIR(stat_buff.st_mode)){
                 *p++ = 'd';
             } else if (S_ISCHR(stat_buff.st_mode)){
@@ -137,6 +141,8 @@ void handle_il(char *f_name){
                 *p++ = 'l';
             } else if (S_ISSOCK(stat_buff.st_mode)){
                 *p++ = 's';
+            } else{
+                *p++ = '-';
             }
             if (stat_buff.st_mode & S_IRUSR){
                 *p++ = 'r';
@@ -224,12 +230,21 @@ void handle_il(char *f_name){
                 printf("%u ", stat_buff.st_gid);
             }
             printf("%ld ", stat_buff.st_size);
-            printf("%d ", stat_buff.st_mtim);//todo error
+            //time
+//            printf("%d ", stat_buff.st_mtim);
+            char *mtime = ctime(&stat_buff.st_mtim.tv_sec);
+            char print_time[13];
+            print_time[12] = '\0';
+            for (int i = 0; i < 12; ++i) {
+                print_time[i] = mtime[i+4];
+            }
+            printf("%s ",print_time);
             printf("%s\n", f_name);
         }
     } else{
         printf("%s  ", f_name);
     }
+    cwd[strlen(cwd)-strlen(f_name)-1] = '\0';
 }
 
 int has_opt(const char opt[]) {
