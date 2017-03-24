@@ -44,9 +44,5 @@ int main(int argc, char * argv[]) {
 }
 
 int is_blank(char c) {
-    if (c==' ') {
-        return 1;
-    } else {
-        return c<=' ';
-    }
+    return c<=' ';
 }
